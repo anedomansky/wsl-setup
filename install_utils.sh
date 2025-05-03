@@ -33,7 +33,7 @@ install_ohmyzsh() {
 # Clone private Dotfiles repo
 clone_dotfiles_repo() {
   cd $HOME
-  git clone --bare https://gitlab.com/anedomansky/dotfiles.git
+  git clone --bare https://anedomansky:glpat-2dQeqmLFsdXFBdMTzTQd@gitlab.com/anedomansky/dotfiles.git
   git --git-dir=$HOME/dotfiles.git --work-tree=$HOME reset --mixed HEAD
   git --git-dir=$HOME/dotfiles.git --work-tree=$HOME restore .
 }
@@ -84,6 +84,11 @@ configure_docker() {
   sudo usermod -aG docker ${localusername}
 }
 
+# Create workspace
+create_workspace() {
+  mkdir $HOME/workspace
+}
+
 # Activate ZSH
 activate_zsh() {
   sudo chsh -s $(which zsh) $USER
@@ -98,6 +103,7 @@ activate_zsh() {
   install_node
   install_docker
   configure_docker
+  create_workspace
   activate_zsh
 } || {
   exit 1
