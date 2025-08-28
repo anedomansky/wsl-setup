@@ -31,9 +31,10 @@ install_ohmyzsh() {
 }
 
 # Clone private Dotfiles repo
+# TODO: is an access token needed here?
 clone_dotfiles_repo() {
   cd $HOME
-  git clone --bare https://anedomansky:glpat-2dQeqmLFsdXFBdMTzTQd@gitlab.com/anedomansky/dotfiles.git
+  git clone --bare https://github.com/anedomansky/dotfiles.git
   git --git-dir=$HOME/dotfiles.git --work-tree=$HOME reset --mixed HEAD
   git --git-dir=$HOME/dotfiles.git --work-tree=$HOME restore .
 }

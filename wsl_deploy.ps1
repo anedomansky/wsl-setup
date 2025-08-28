@@ -93,7 +93,7 @@ function ENVIRONMENT_SETUP {
   Write-Host "`r`nEnvironment setup starting..."
 
   $ScriptPath = wsl.exe -d $distribution --user root wslpath -a $PSScriptRoot.Replace('\', '\\')
-  Start-Process -wait -FilePath C:\Windows\System32\wsl.exe -ArgumentList "-d $distribution --user anedomansky -- /bin/bash ${ScriptPath}/initial_setup.sh"
+  Start-Process -wait -FilePath C:\Windows\System32\wsl.exe -ArgumentList "-d $distribution --user $localusername -- /bin/bash ${ScriptPath}/initial_setup.sh"
   wsl.exe --shutdown
   Start-Sleep -s 15
 
@@ -112,7 +112,7 @@ function UTILS {
   Write-Host "`r`nInstalling utils..."
 
   $ScriptPath = wsl.exe -d $distribution --user root wslpath -a $PSScriptRoot.Replace('\', '\\')
-  Start-Process -wait -FilePath C:\Windows\System32\wsl.exe -ArgumentList "-d $distribution --user anedomansky -- /bin/bash ${ScriptPath}/install_utils.sh -u $localusername"
+  Start-Process -wait -FilePath C:\Windows\System32\wsl.exe -ArgumentList "-d $distribution --user $localusername -- /bin/bash ${ScriptPath}/install_utils.sh -u $localusername"
   wsl.exe --shutdown
   Start-Sleep -s 15
 
