@@ -5,7 +5,15 @@ param (
   [ValidateSet("ubuntu", "ubuntu-20.04", "ubuntu-22.04", "ubuntu-24.04")]
   [string]$userdefined_distribution = "ubuntu",
 
+  [Parameter(HelpMessage="Please specify the local username")]
   [string]$localusername = "localuser",
+
+  [Parameter(HelpMessage="Please specify the Git username", Mandatory=$true)]
+  [string]$gitname,
+
+  [Parameter(HelpMessage="Please specify the Git email", Mandatory=$true)]
+  [string]$gitmail,
+
   [Parameter(HelpMessage="Please specify true or false")]
   [ValidateSet("true", "false")]
   [string]$SetDefaultInstall = "true"
@@ -31,7 +39,7 @@ function PREINSTALL {
 
   if ($WSL.State -eq "Enabled") {
     Write-Host "WSL is already installed"
-    Start-Process -FilePath C:\Windows\System32\wsl.exe -ArgumentList "--update --web-download"  -NoNewWindow -Wait -PassThru
+    Start-Process -FilePath C:\Windows\System32\wsl.exe -ArgumentList @("--update", "--web-download")  -NoNewWindow -Wait -PassThru
   }
   else {
     Write-Host "Installing WSL"
@@ -60,7 +68,7 @@ function DISTRIBUTION {
 
     # Install the distribution
     Write-Host "`r`nInstalling $distribution..."
-    Start-Process -wait -FilePath C:\Windows\System32\wsl.exe -ArgumentList "--install -d $distribution --web-download --no-launch"
+    Start-Process -wait -NoNewWindow -FilePath C:\Windows\System32\wsl.exe -ArgumentList @("--install", "-d", $distribution, "--web-download", "--no-launch")
 
     # Wait for the installation to complete
     do {
@@ -74,7 +82,7 @@ function DISTRIBUTION {
   Write-Host "`r`nUser setup starting..."
 
   $ScriptPath = wsl.exe -d $distribution --user root wslpath -a $PSScriptRoot.Replace('\', '\\')
-  Start-Process -wait -FilePath C:\Windows\System32\wsl.exe -ArgumentList "-d $distribution --user root -- /bin/bash ${ScriptPath}/initial_user_setup.sh -u $localusername"
+  Start-Process -wait -NoNewWindow -FilePath C:\Windows\System32\wsl.exe -ArgumentList @("-d", $distribution, "--user", "root", "--", "/bin/bash", "${ScriptPath}/initial_user_setup.sh", "-u", $localusername)
   wsl.exe --shutdown
   Start-Sleep -s 15
 
@@ -93,12 +101,31 @@ function ENVIRONMENT_SETUP {
   Write-Host "`r`nEnvironment setup starting..."
 
   $ScriptPath = wsl.exe -d $distribution --user root wslpath -a $PSScriptRoot.Replace('\', '\\')
-  Start-Process -wait -FilePath C:\Windows\System32\wsl.exe -ArgumentList "-d $distribution --user anedomansky -- /bin/bash ${ScriptPath}/initial_setup.sh"
+  Start-Process -wait -NoNewWindow -FilePath C:\Windows\System32\wsl.exe -ArgumentList @("-d", $distribution, "--user", $localusername, "--", "/bin/bash", "${ScriptPath}/environment_setup.sh", "-n", $gitname, "-m", $gitmail)
   wsl.exe --shutdown
   Start-Sleep -s 15
 
   if (-not $?) {
     Write-Host "Initial setup did not complete successfully, please try running the script again"
+    exit
+  }
+}
+
+function INSTALL_HOMEBREW {
+  param (
+    [Parameter(Position=0, Mandatory=$true)]
+    [string]$distribution
+    )
+
+  Write-Host "`r`nInstalling homebrew..."
+
+  $ScriptPath = wsl.exe -d $distribution --user root wslpath -a $PSScriptRoot.Replace('\', '\\')
+  Start-Process -wait -NoNewWindow -FilePath C:\Windows\System32\wsl.exe -ArgumentList @("-d", $distribution, "--user", $localusername, "--", "/bin/bash", "${ScriptPath}/install_homebrew.sh")
+  wsl.exe --shutdown
+  Start-Sleep -s 15
+
+  if (-not $?) {
+    Write-Host "Failed to add sudo access, please try running the script again"
     exit
   }
 }
@@ -112,7 +139,7 @@ function UTILS {
   Write-Host "`r`nInstalling utils..."
 
   $ScriptPath = wsl.exe -d $distribution --user root wslpath -a $PSScriptRoot.Replace('\', '\\')
-  Start-Process -wait -FilePath C:\Windows\System32\wsl.exe -ArgumentList "-d $distribution --user anedomansky -- /bin/bash ${ScriptPath}/install_utils.sh -u $localusername"
+  Start-Process -wait -NoNewWindow -FilePath C:\Windows\System32\wsl.exe -ArgumentList @("-d", $distribution, "--user", $localusername, "--", "/bin/bash", "${ScriptPath}/install_utils.sh", "-u", $localusername, "-n", $gitname)
   wsl.exe --shutdown
   Start-Sleep -s 15
 
@@ -144,7 +171,7 @@ function COMPLETION {
   else {
     Write-Host "Not setting default distribution`r`n"
   }
-  Start-Process -FilePath C:\Windows\System32\wsl.exe -ArgumentList "config --default-user $localusername"  -NoNewWindow -Wait -PassThru
+  Start-Process -FilePath C:\Windows\System32\wsl.exe -ArgumentList @("config", "--default-user", $localusername) -NoNewWindow -Wait -PassThru
   wsl.exe --shutdown
   Start-Sleep -s 15
 
@@ -160,6 +187,7 @@ if ($isWin11) {
   PREINSTALL
   DISTRIBUTION -distribution $userdefined_distribution
   ENVIRONMENT_SETUP -distribution $userdefined_distribution
+  INSTALL_HOMEBREW -distribution $userdefined_distribution
   UTILS -distribution $userdefined_distribution
   COMPLETION -distribution $userdefined_distribution
 }

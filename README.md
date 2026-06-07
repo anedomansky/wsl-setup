@@ -4,4 +4,4 @@
 
 Run the following command from an PowerShell with administrative rights:
 
-`.\wsl_deploy.ps1  -userdefined_distribution ubuntu -localusername anedomansky`
+`.\wsl_deploy.ps1  -userdefined_distribution ubuntu -localusername anedomansky -gitname anedomansky -gitmail 'anedomansky@gmail.com'`

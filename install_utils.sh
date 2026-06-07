@@ -7,11 +7,14 @@ error_report() {
 
 trap "error_report $LINENO" ERR
 
-# Get local user name from args
-while getopts ":u:" opt; do
+# Get local user name and Git user name from args
+while getopts ":u:n:" opt; do
   case $opt in
     u)
       localusername="$OPTARG"
+      ;;
+    n)
+      git_name="$OPTARG"
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
@@ -24,62 +27,74 @@ while getopts ":u:" opt; do
   esac
 done
 
+# Check for regular user
+if [[ $EUID -eq 0 ]]; then
+  echo "Please run this script as a regular user." 1>&2
+  exit 2
+fi
+
+# Install Zsh
+install_zsh() {
+  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash)"
+  cd $HOME
+  brew install zsh
+}
+
+setup_homebrew() {
+  echo >> /home/anedomansky/.zshrc
+  echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash)"' >> /home/anedomansky/.zshrc
+  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash)"
+}
+
 # Install OhMyZsh and plugins
 install_ohmyzsh() {
   cd $HOME
-  sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+  brew install oh-my-posh
 }
 
 # Clone private Dotfiles repo
 clone_dotfiles_repo() {
   cd $HOME
-  git clone --bare https://anedomansky:glpat-2dQeqmLFsdXFBdMTzTQd@gitlab.com/anedomansky/dotfiles.git
+  git clone --bare https://github.com/${git_name}/dotfiles.git
   git --git-dir=$HOME/dotfiles.git --work-tree=$HOME reset --mixed HEAD
   git --git-dir=$HOME/dotfiles.git --work-tree=$HOME restore .
 }
 
 install_ohmyzsh_plugins() {
-  git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
-  git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+  cd $HOME
+  brew install zsh-syntax-highlighting
+  brew install zsh-autosuggestions
   git clone https://github.com/jirutka/zsh-shift-select.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-shift-select
-  sh -c "$(curl -fsSL https://raw.githubusercontent.com/z-shell/zsh-navigation-tools/main/doc/install.sh)"
-  git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
+  brew install zsh-navigation-tools
 }
 
-# Install NVM
-install_nvm() {
+# Install FNM
+install_fnm() {
   cd $HOME
-  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash
+  brew install fnm
+  cat <<EOF > .zshrc
+eval "$(fnm env --use-on-cd --resolve-engines --version-file-strategy=recursive --shell zsh)"
+EOF
+  eval "$(fnm env --use-on-cd --resolve-engines --version-file-strategy=recursive --shell zsh)"
 }
 
 # Install Node LTS
 install_node() {
-  export NVM_DIR="$HOME/.nvm"
-  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-  [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-  nvm install --lts
-  nvm use --lts
+  echo "Installing Node.js LTS version..."
+  fnm completions --shell zsh
+  fnm install --lts --use
 }
 
 # Install Docker
 install_docker() {
-  # Add Docker's official GPG key:
-  sudo apt install -y ca-certificates curl
-  sudo install -m 0755 -d /etc/apt/keyrings
-  sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-  sudo chmod a+r /etc/apt/keyrings/docker.asc
-
-  # Add the repository to Apt sources:
-  echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-    $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
-    sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-  sudo apt update
-  sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  cd $HOME
+  echo "Installing Docker..."
+  brew install docker
 }
 
 # Add user to docker group
 configure_docker() {
+  echo "Configuring Docker permissions..."
   sudo groupadd docker
   sudo usermod -aG docker ${localusername}
 }
@@ -91,15 +106,18 @@ create_workspace() {
 
 # Activate ZSH
 activate_zsh() {
+  echo "Changing default shell to Zsh..."
   sudo chsh -s $(which zsh) $USER
 }
 
 # Main script
 {
+  install_zsh
+  setup_homebrew
   install_ohmyzsh
   clone_dotfiles_repo
   install_ohmyzsh_plugins
-  install_nvm
+  install_fnm
   install_node
   install_docker
   configure_docker

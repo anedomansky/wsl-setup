@@ -40,20 +40,25 @@ systemd=true
 EOF
 }
 
-# Create a local user if it doesn't exist and allow sudo access
+# Create a local user if it doesn't exist
 create_local_user() {
   if ! grep -q ${localusername} /etc/passwd; then
     useradd ${localusername} -c "created by WSL initial setup" \
-    -G sudo \
     -m -s /bin/bash -U
+    echo "User ${localusername} created. Please set a password for this user."
+    passwd "${localusername}"
   fi
-  echo "${localusername} ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/${localusername}
 }
 
-# Main script
+add_user_to_sudoers() {
+  echo "${localusername} ALL=(ALL) ALL" > /etc/sudoers.d/${localusername}
+  chmod 0440 /etc/sudoers.d/${localusername}
+}
+
 {
-    configure_wsl
-    create_local_user
+  configure_wsl
+  create_local_user
+  add_user_to_sudoers
 } || {
-    exit 1
+exit 1
 }
